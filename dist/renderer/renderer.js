@@ -25197,8 +25197,17 @@ var saved = "";
 var saveTimer;
 var saving = false;
 function say(text, isError = false) {
+  if (isError) {
+    statusEl.textContent = "";
+    statusEl.classList.remove("error");
+    bannerEl.hidden = false;
+    bannerEl.className = "error";
+    bannerEl.textContent = text;
+    return;
+  }
   statusEl.textContent = text;
-  statusEl.classList.toggle("error", isError);
+  statusEl.classList.remove("error");
+  if (bannerEl.className === "error") showBanner();
 }
 function failed(r) {
   return "error" in r;
@@ -25241,6 +25250,7 @@ function showBanner() {
   } else if (n.sharedWithMe) text = "Editing a note you do not own \u2014 saving syncs it to them";
   else if (n.destroys?.length) text = `Read-only: saving would remove ${n.destroys.join(", ")}`;
   else if (n.degrades?.length) text = `Saving will flatten ${n.degrades.join(", ")} \u2014 no text is lost`;
+  bannerEl.className = "";
   bannerEl.hidden = text === "";
   bannerEl.textContent = text;
   if (action) {

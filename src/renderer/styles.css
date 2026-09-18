@@ -155,6 +155,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #banner {
   flex: none;
   padding: 5px 16px;
+  white-space: normal;
   border-bottom: 1px solid var(--muted);
   background: var(--dark-background);
   color: var(--dark-foreground);
@@ -163,6 +164,9 @@ main { flex: 1; display: flex; min-height: 0; }
   align-items: center;
   gap: 10px;
 }
+/* A failure is a sentence and needs the room to be one. */
+#banner.error { color: var(--red); border-bottom-color: var(--red); }
+
 #banner button {
   background: none;
   border: 1px solid var(--muted);

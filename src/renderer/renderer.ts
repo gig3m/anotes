@@ -42,9 +42,26 @@ let saved = "";
 let saveTimer: number | undefined;
 let saving = false;
 
+/**
+ * Say something, in the place it will fit.
+ *
+ * The status line is one row beside the search box and truncates; a failure
+ * from the daemon is a sentence and disappeared into an ellipsis there, which
+ * is how "Not saved: applescript: 97:139: ..." was all the user ever saw.
+ * Errors go to the banner, which wraps and stays until something replaces it.
+ */
 function say(text: string, isError = false): void {
+  if (isError) {
+    statusEl.textContent = "";
+    statusEl.classList.remove("error");
+    bannerEl.hidden = false;
+    bannerEl.className = "error";
+    bannerEl.textContent = text;
+    return;
+  }
   statusEl.textContent = text;
-  statusEl.classList.toggle("error", isError);
+  statusEl.classList.remove("error");
+  if (bannerEl.className === "error") showBanner();
 }
 
 function failed<T>(r: Result<T>): r is { error: string; destroys?: string[] } {
@@ -85,6 +102,7 @@ function showBanner(): void {
   else if (n.destroys?.length) text = `Read-only: saving would remove ${n.destroys.join(", ")}`;
   else if (n.degrades?.length) text = `Saving will flatten ${n.degrades.join(", ")} — no text is lost`;
 
+  bannerEl.className = "";
   bannerEl.hidden = text === "";
   bannerEl.textContent = text;
   if (action) {
