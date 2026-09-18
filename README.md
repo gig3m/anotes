@@ -2,55 +2,70 @@
 
 Apple Notes on the Omarchy desktop.
 
-anotes is an [Omarchy](https://omarchy.org) shell plugin: a bar widget and panel
-that reads, searches and edits the notes syncing to your iPhone. It talks to
+anotes reads, searches and edits the notes syncing to your iPhone. It talks to
 [applenotes](https://github.com/gig3m/applenotes), a daemon running on a Mac
-with SIP disabled, over your tailnet.
+with SIP disabled, over your tailnet. There is no iCloud API involved; the Mac
+is the bridge.
 
-There is no iCloud API involved. The Mac is the bridge.
+Built for [Omarchy](https://omarchy.org): keyboard-first, almost no chrome,
+mono, and themed from the live palette.
 
-## Install
+## Running
 
 ```sh
-git clone https://github.com/gig3m/anotes ~/.config/omarchy/plugins/gig3m.anotes
-omarchy-shell shell setPluginEnabled gig3m.anotes true
-omarchy-shell shell putBarWidget gig3m.anotes '{"section":"right"}'
+npm install
+npm start
+npm run install-desktop   # and it is in the menu
 ```
 
-The daemon URL and token are plugin settings. Left blank, they are read from
-`~/.config/applenotes/url` and `~/.config/applenotes/token` -- the same files
-the `notes` CLI uses, so a machine set up for one needs nothing further.
+The daemon URL and token are read from `~/.config/applenotes/url` and
+`~/.config/applenotes/token` -- the same files the `notes` CLI uses, so a
+machine set up for one needs nothing further. `NOTESD_URL` and `NOTESD_TOKEN`
+override them.
+
+## Theming
+
+Omarchy renders the active theme to `~/.local/state/omarchy/current/theme/` and
+rewrites it on `omarchy theme set`. anotes reads `colors.toml` from there and
+watches the directory, so it follows all twenty themes without knowing any of
+their names -- the same way alacritty, btop, neovim and the rest are themed.
+
+The visual language is Omarchy's own: mono everywhere in the chrome, squared
+corners, borders that are always present rather than grown on focus, and the
+shell's 12/11/10 type scale. Prose is the one exception, and prose only lives
+inside the note.
 
 ## Notes you do not own
 
 A note shared *with* you lives in the owner's iCloud account. Editing it syncs
 the change to them and to everyone else on the share, so those notes open
-read-only and are marked in the list. "Edit anyway" takes responsibility for one
+read-only and are tagged in the list. "Edit anyway" takes responsibility for one
 note; the agreement clears when you open another.
 
-## Rendering
+## Reading and editing
 
-Notes are drawn, not shown as Markdown: headings, bold, italic, strikethrough,
-code, links, superscript, bullet and dash lists, numbering, nesting and
-checklists.
+Notes are rendered: headings, bold, italic, strikethrough, code, links,
+superscript, bullet and dash lists, numbering, nesting and checklists. Clicking
+one opens its source.
 
-Reading and editing are deliberately separate. Editing rendered text means
-rebuilding Markdown from the view, and Qt's rich text would make that a second
-parser -- one nothing has checked against a real library. `Markdown.js` has that
-guarantee and a `TextDocument` round trip would not, so the rendered view is
-read-only and exact, and editing hands back the same text the daemon sent,
-unchanged unless you changed it.
+The split is deliberate. Editing rendered text means rebuilding Markdown out of
+the view, and doing that through a rich-text widget would be a second parser --
+one nothing has checked against a real library. `src/core/markdown.js` has that
+guarantee; the view does not. So the rendered pane is exact and read-only, and
+editing hands back the text the daemon sent, unchanged unless you changed it.
 
 ## Tests
 
 ```sh
-node tests/run.js                 # the round trip, on chosen cases
-CORPUS=/path/to/notes node tests/run.js   # and on a real library
+npm test
+CORPUS=/path/to/markdown/notes npm test   # and against a real library
 ```
 
-The corpus check round-trips every note in a directory of Markdown files. Run
-against a real library it found five bugs the hand-written cases missed, so it
-is the one worth keeping.
+The corpus check round-trips every note in a directory. Run against a real
+library it found five bugs the hand-written cases missed -- dropped backslash
+escapes that would have turned body text into a numbered list, trimmed leading
+whitespace, code spans parsed as markup, delimiters emitted per run instead of
+per change, and discarded fence markers. It is the test worth keeping.
 
 ## License
 

@@ -1,0 +1,205 @@
+/* Fallbacks only. The real palette is pushed from main at startup and again
+   whenever Omarchy switches theme -- see src/core/theme.ts. */
+:root {
+  --background: #0d1117;
+  --dark-background: #0a0d11;
+  --darker-background: #07090c;
+  --lighter-background: #25292e;
+  --foreground: #b1bac4;
+  --dark-foreground: #858c93;
+  --bright-foreground: #c5cbd3;
+  --muted: #484f58;
+  --accent: #58a6ff;
+  --selection: #25292e;
+  --red: #ff7b72;
+  --green: #3fb950;
+  --yellow: #d29922;
+
+  /* Two faces, by role rather than taste. Mono carries the chrome -- folders,
+     titles, dates, counts -- where it aligns on a grid for free and matches the
+     rest of Omarchy. The note itself is prose and reads faster in a face built
+     for it. */
+  --mono-font: "JetBrainsMono Nerd Font", ui-monospace, monospace;
+  --ui-font: "Adwaita Sans", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Omarchy's shell type scale: base 12, body-small 11, caption 10. Mono runs a
+     touch smaller: at equal size it reads larger than the sans. */
+  --text: 12px;
+  --text-small: 11px;
+  --text-caption: 10px;
+  --text-mono: 11px;
+  --text-mono-small: 10px;
+}
+
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--muted) transparent; }
+::selection { background: var(--selection); color: var(--bright-foreground); }
+:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--background);
+  color: var(--foreground);
+  font: var(--text-mono)/1.5 var(--mono-font);
+  overflow: hidden;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--muted);
+  flex: none;
+  /* Hyprland draws the border and title, so this row is the drag handle. */
+  -webkit-app-region: drag;
+}
+header h1 {
+  margin: 0;
+  font: 600 var(--text-mono)/1.4 var(--mono-font);
+  color: var(--bright-foreground);
+  flex: none;
+}
+
+/* Squared, on the content surface, with a border that is always there. A field
+   that only grows a border on focus reads as a button until you click it. */
+#search {
+  flex: 1;
+  min-width: 0;
+  background: var(--dark-background);
+  border: 1px solid var(--muted);
+  border-radius: 0;
+  padding: 4px 9px;
+  color: var(--foreground);
+  font: var(--text-mono)/1.6 var(--mono-font);
+  -webkit-app-region: no-drag;
+}
+#search:focus { outline: none; border-color: var(--accent); }
+#search::placeholder { color: var(--dark-foreground); }
+#search::-webkit-search-cancel-button { appearance: none; }
+
+#status {
+  color: var(--dark-foreground);
+  font: var(--text-mono-small)/1.4 var(--mono-font);
+  flex: none;
+  white-space: nowrap;
+  max-width: 34ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#status.error { color: var(--red); }
+
+main { flex: 1; display: flex; min-height: 0; }
+
+#folders {
+  flex: 0 0 164px;
+  overflow-y: auto;
+  padding: 6px 0;
+  border-right: 1px solid var(--muted);
+}
+#folders button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px 14px;
+  color: var(--foreground);
+  font: var(--text-mono)/1.6 var(--mono-font);
+  cursor: pointer;
+}
+#folders button:hover { background: var(--lighter-background); }
+#folders button[aria-current="true"] { background: var(--selection); color: var(--bright-foreground); }
+
+#list {
+  flex: 0 0 272px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  border-right: 1px solid var(--muted);
+}
+#list li {
+  padding: 7px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--muted) 40%, transparent);
+  cursor: pointer;
+}
+#list li:hover { background: var(--lighter-background); }
+#list li[aria-selected="true"] { background: var(--selection); }
+#list .title {
+  color: var(--bright-foreground);
+  font: var(--text-mono)/1.4 var(--mono-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#list .meta {
+  color: var(--dark-foreground);
+  font: var(--text-mono-small)/1.5 var(--mono-font);
+  display: flex;
+  gap: 8px;
+}
+#list .tag { color: var(--yellow); }
+#list .tag.theirs { color: var(--accent); }
+
+#note { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* One line, on the accent border. Not a rounded card: this is a status strip,
+   the same weight as the rest of the chrome. */
+#banner {
+  flex: none;
+  padding: 5px 16px;
+  border-bottom: 1px solid var(--muted);
+  background: var(--dark-background);
+  color: var(--dark-foreground);
+  font: var(--text-mono-small)/1.5 var(--mono-font);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#banner button {
+  background: none;
+  border: 1px solid var(--muted);
+  border-radius: 0;
+  color: var(--foreground);
+  font: var(--text-mono-small) var(--mono-font);
+  padding: 1px 7px;
+  cursor: pointer;
+}
+#banner button:hover { border-color: var(--accent); color: var(--bright-foreground); }
+
+#body, #source {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 22px;
+  margin: 0;
+}
+/* The note is prose. Everything outside it is chrome and stays mono. */
+#body { font: var(--text)/1.65 var(--ui-font); color: var(--foreground); }
+#body h1 { font: 600 19px/1.3 var(--ui-font); color: var(--bright-foreground); margin: 14px 0 6px; }
+#body h2 { font: 600 15px/1.3 var(--ui-font); color: var(--bright-foreground); margin: 12px 0 4px; }
+#body h3 { font: 600 13px/1.3 var(--ui-font); color: var(--bright-foreground); margin: 10px 0 3px; }
+#body p { margin: 0 0 2px; min-height: 1.65em; }
+#body a { color: var(--accent); }
+#body code { font: var(--text-mono) var(--mono-font); color: var(--green); }
+#body .marker { color: var(--muted); user-select: none; }
+#body .line { display: flex; gap: 6px; }
+#body .line > .text { flex: 1; min-width: 0; }
+
+#source {
+  background: var(--background);
+  color: var(--foreground);
+  border: none;
+  resize: none;
+  font: var(--text-mono)/1.7 var(--mono-font);
+  outline: none;
+}
+
+#empty {
+  margin: auto;
+  color: var(--dark-foreground);
+  font: var(--text-mono) var(--mono-font);
+}

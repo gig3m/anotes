@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>anotes</title>
+<link rel="stylesheet" href="styles.css" />
+<body>
+  <!-- Chrome is one row: title, search, status. No menu bar, no toolbar. -->
+  <header>
+    <h1>anotes</h1>
+    <input id="search" type="search" placeholder="Search all notes" spellcheck="false" />
+    <span id="status"></span>
+  </header>
+  <main>
+    <nav id="folders"></nav>
+    <ul id="list"></ul>
+    <section id="note">
+      <div id="banner" hidden></div>
+      <article id="body"></article>
+      <textarea id="source" spellcheck="false" hidden></textarea>
+    </section>
+  </main>
+  <script type="module" src="../../dist/renderer/renderer.js"></script>
+</body>

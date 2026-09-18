@@ -1,0 +1,26 @@
+{
+  "name": "anotes",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Apple Notes on the Omarchy desktop, over an applenotes daemon",
+  "license": "MIT",
+  "scripts": {
+    "start": "npm run build && ELECTRON_OZONE_PLATFORM_HINT=auto electron43 src/main/main.ts",
+    "build": "npm run build:preload && npm run build:renderer",
+    "build:preload": "esbuild src/preload/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload/preload.cjs",
+    "build:renderer": "esbuild src/renderer/renderer.ts --bundle --format=esm --outfile=dist/renderer/renderer.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node test/markdown.test.js",
+    "install-desktop": "node scripts/install-desktop.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "esbuild": "^0.24",
+    "typescript": "^5"
+  },
+  "allowScripts": {
+    "electron@34.5.8": true,
+    "esbuild@0.24.2": true
+  },
+  "type": "module"
+}
