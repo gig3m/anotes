@@ -331,11 +331,12 @@ fn show_note(state: &Rc<State>, panes: &Rc<Panes>, note: Note) {
         note.destroys.is_empty() && note.body_error.is_empty() && !note.shared_with_me;
     panes.body.set_editable(editable);
     if note.shared_with_me {
-        // The owner is a CloudKit record id, not a name, so there is nothing
-        // useful to show beyond the fact that it is not yours.
-        panes.banner.set_title(
-            "This note belongs to another iCloud account. Editing it here would sync              the change to its owner, so it is read-only.",
-        );
+        // One short line. An AdwBanner is a strip with a button, not a
+        // paragraph: a sentence here wraps around the button slot and reads as
+        // broken. The owner is a CloudKit record id rather than a name, so
+        // there is nothing more useful to say anyway.
+        panes.banner.set_title("Owned by someone else — read-only");
+        panes.banner.set_button_label(Some("Edit anyway"));
         panes.banner.set_revealed(true);
     } else if !note.body_error.is_empty() {
         panes.banner.set_button_label(None);
