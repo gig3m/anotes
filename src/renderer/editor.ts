@@ -1,5 +1,8 @@
 import { EditorState, type Extension } from "@codemirror/state";
-import { EditorView, Decoration, ViewPlugin, keymap, type DecorationSet } from "@codemirror/view";
+import {
+  EditorView, Decoration, ViewPlugin, keymap, drawSelection, dropCursor,
+  highlightActiveLine, type DecorationSet,
+} from "@codemirror/view";
 import { syntaxTree, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -109,8 +112,8 @@ export function createEditor(parent: HTMLElement, host: EditorHost): {
   setDoc(text: string): void;
   getDoc(): string;
   setReadOnly(on: boolean): void;
+  focus(): void;
 } {
-  let readOnly = false;
   const readOnlyCompartment: Extension = EditorState.readOnly.of(false);
 
   const view = new EditorView({
@@ -125,6 +128,14 @@ export function createEditor(parent: HTMLElement, host: EditorHost): {
           ...historyKeymap,
         ]),
         markdown({ base: markdownLanguage }),
+        // The caret and the active line, explicitly. CodeMirror draws neither
+        // by default, and without them there is no way to tell where you are --
+        // which matters more here than in a code editor, because the
+        // concealment means the line under the cursor is the one showing its
+        // syntax.
+        drawSelection(),
+        dropCursor(),
+        highlightActiveLine(),
         syntaxHighlighting(highlight),
         liveMarkers,
         EditorView.lineWrapping,
@@ -145,8 +156,8 @@ export function createEditor(parent: HTMLElement, host: EditorHost): {
       });
     },
     getDoc: () => view.state.doc.toString(),
+    focus: () => view.focus(),
     setReadOnly(on: boolean) {
-      readOnly = on;
       view.contentDOM.setAttribute("contenteditable", String(!on));
       view.dom.classList.toggle("is-readonly", on);
     },

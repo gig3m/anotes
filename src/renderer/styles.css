@@ -183,13 +183,32 @@ main { flex: 1; display: flex; min-height: 0; }
 .cm-editor.cm-focused { outline: none; }
 .cm-scroller {
   font: var(--text)/1.7 var(--ui-font);
-  padding: 14px 20px;
+  padding: 14px 0;
   overflow-y: auto;
 }
+/* The padding lives on the line, not the scroller, so the active-line tint runs
+   the full width instead of stopping short of the margin. */
+.cm-line { padding: 0 20px; }
 .cm-content { caret-color: var(--accent); }
-.cm-cursor { border-left-color: var(--accent); }
+/* Drawn by CodeMirror rather than the browser, so it needs a width as well as
+   a colour, and it has to stay visible when the window loses focus -- a note
+   you have clicked away from should still show where you were. */
+.cm-cursor, .cm-dropCursor {
+  border-left: 2px solid var(--accent);
+  margin-left: -1px;
+}
+.cm-editor:not(.cm-focused) .cm-cursor { display: block; opacity: 0.45; }
 .cm-selectionBackground, .cm-editor ::selection { background: var(--selection) !important; }
-.cm-activeLine { background: color-mix(in srgb, var(--lighter-background) 45%, transparent); }
+/* Where you are, said twice: a tint across the line and a bar in the margin.
+   The caret alone is two pixels of a blinking line in a wall of prose, and on a
+   long note that is not enough to find. */
+.cm-activeLine {
+  background: color-mix(in srgb, var(--lighter-background) 70%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+/* A read-only note has no caret, so highlighting a line would point at
+   something that cannot be used. */
+.cm-editor.is-readonly .cm-activeLine { background: transparent; box-shadow: none; }
 .cm-gutters { display: none; }
 .cm-editor.is-readonly .cm-content { color: var(--dark-foreground); }
 .cm-editor.is-readonly .cm-cursor { display: none; }

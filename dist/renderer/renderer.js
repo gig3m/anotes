@@ -2995,8 +2995,8 @@ var RangeSet = class _RangeSet {
       return _RangeSet.empty;
     let result = last(sets);
     for (let i = sets.length - 2; i >= 0; i--) {
-      for (let layer = sets[i]; layer != _RangeSet.empty; layer = layer.nextLayer)
-        result = new _RangeSet(layer.chunkPos, layer.chunk, result, Math.max(layer.maxPoint, result.maxPoint));
+      for (let layer2 = sets[i]; layer2 != _RangeSet.empty; layer2 = layer2.nextLayer)
+        result = new _RangeSet(layer2.chunkPos, layer2.chunk, result, Math.max(layer2.maxPoint, result.maxPoint));
     }
     return result;
   }
@@ -3136,8 +3136,8 @@ function findSharedChunks(a, b, textDiff) {
   return shared;
 }
 var LayerCursor = class {
-  constructor(layer, skip, minPoint, rank = 0) {
-    this.layer = layer;
+  constructor(layer2, skip, minPoint, rank = 0) {
+    this.layer = layer2;
     this.skip = skip;
     this.minPoint = minPoint;
     this.rank = rank;
@@ -12099,6 +12099,318 @@ function runHandlers(map, event, view, scope) {
   currentKeyEvent = null;
   return handled;
 }
+var RectangleMarker = class _RectangleMarker {
+  /**
+  Create a marker with the given class and dimensions. If `width`
+  is null, the DOM element will get no width style.
+  */
+  constructor(className, left, top2, width, height) {
+    this.className = className;
+    this.left = left;
+    this.top = top2;
+    this.width = width;
+    this.height = height;
+  }
+  draw() {
+    let elt2 = document.createElement("div");
+    elt2.className = this.className;
+    this.adjust(elt2);
+    return elt2;
+  }
+  update(elt2, prev) {
+    if (prev.className != this.className)
+      return false;
+    this.adjust(elt2);
+    return true;
+  }
+  adjust(elt2) {
+    elt2.style.left = this.left + "px";
+    elt2.style.top = this.top + "px";
+    if (this.width != null)
+      elt2.style.width = this.width + "px";
+    elt2.style.height = this.height + "px";
+  }
+  eq(p) {
+    return this.left == p.left && this.top == p.top && this.width == p.width && this.height == p.height && this.className == p.className;
+  }
+  /**
+  Create a set of rectangles for the given selection range,
+  assigning them theclass`className`. Will create a single
+  rectangle for empty ranges, and a set of selection-style
+  rectangles covering the range's content (in a bidi-aware
+  way) for non-empty ones.
+  */
+  static forRange(view, className, range) {
+    if (range.empty) {
+      let pos = view.coordsAtPos(range.head, range.assoc || 1);
+      if (!pos)
+        return [];
+      let base2 = getBase(view);
+      return [new _RectangleMarker(className, pos.left - base2.left, pos.top - base2.top, null, pos.bottom - pos.top)];
+    } else {
+      return rectanglesForRange(view, className, range);
+    }
+  }
+};
+function getBase(view) {
+  let rect = view.scrollDOM.getBoundingClientRect();
+  let left = view.textDirection == Direction.LTR ? rect.left : rect.right - view.scrollDOM.clientWidth * view.scaleX;
+  return { left: left - view.scrollDOM.scrollLeft * view.scaleX, top: rect.top - view.scrollDOM.scrollTop * view.scaleY };
+}
+function wrappedLine(view, pos, side, inside) {
+  let coords = view.coordsAtPos(pos, side * 2);
+  if (!coords)
+    return inside;
+  let editorRect = view.dom.getBoundingClientRect();
+  let y = (coords.top + coords.bottom) / 2;
+  let left = view.posAtCoords({ x: editorRect.left + 1, y });
+  let right = view.posAtCoords({ x: editorRect.right - 1, y });
+  if (left == null || right == null)
+    return inside;
+  return { from: Math.max(inside.from, Math.min(left, right)), to: Math.min(inside.to, Math.max(left, right)) };
+}
+function rectanglesForRange(view, className, range) {
+  if (range.to <= view.viewport.from || range.from >= view.viewport.to)
+    return [];
+  let from = Math.max(range.from, view.viewport.from), to = Math.min(range.to, view.viewport.to);
+  let ltr = view.textDirection == Direction.LTR;
+  let content2 = view.contentDOM, contentRect = content2.getBoundingClientRect(), base2 = getBase(view);
+  let lineElt = content2.querySelector(".cm-line"), lineStyle = lineElt && window.getComputedStyle(lineElt);
+  let leftSide = contentRect.left + (lineStyle ? parseInt(lineStyle.paddingLeft) + Math.min(0, parseInt(lineStyle.textIndent)) : 0);
+  let rightSide = contentRect.right - (lineStyle ? parseInt(lineStyle.paddingRight) : 0);
+  let startBlock = blockAt(view, from, 1), endBlock = blockAt(view, to, -1);
+  let visualStart = startBlock.type == BlockType.Text ? startBlock : null;
+  let visualEnd = endBlock.type == BlockType.Text ? endBlock : null;
+  if (visualStart && (view.lineWrapping || startBlock.widgetLineBreaks))
+    visualStart = wrappedLine(view, from, 1, visualStart);
+  if (visualEnd && (view.lineWrapping || endBlock.widgetLineBreaks))
+    visualEnd = wrappedLine(view, to, -1, visualEnd);
+  if (visualStart && visualEnd && visualStart.from == visualEnd.from && visualStart.to == visualEnd.to) {
+    return pieces(drawForLine(range.from, range.to, visualStart));
+  } else {
+    let top2 = visualStart ? drawForLine(range.from, null, visualStart) : drawForWidget(startBlock, false);
+    let bottom = visualEnd ? drawForLine(null, range.to, visualEnd) : drawForWidget(endBlock, true);
+    let between = [];
+    if ((visualStart || startBlock).to < (visualEnd || endBlock).from - (visualStart && visualEnd ? 1 : 0) || startBlock.widgetLineBreaks > 1 && top2.bottom + view.defaultLineHeight / 2 < bottom.top)
+      between.push(piece(leftSide, top2.bottom, rightSide, bottom.top));
+    else if (top2.bottom < bottom.top && view.elementAtHeight((top2.bottom + bottom.top) / 2).type == BlockType.Text)
+      top2.bottom = bottom.top = (top2.bottom + bottom.top) / 2;
+    return pieces(top2).concat(between).concat(pieces(bottom));
+  }
+  function piece(left, top2, right, bottom) {
+    return new RectangleMarker(className, left - base2.left, top2 - base2.top, Math.max(0, right - left), bottom - top2);
+  }
+  function pieces({ top: top2, bottom, horizontal }) {
+    let pieces2 = [];
+    for (let i = 0; i < horizontal.length; i += 2)
+      pieces2.push(piece(horizontal[i], top2, horizontal[i + 1], bottom));
+    return pieces2;
+  }
+  function drawForLine(from2, to2, line) {
+    let top2 = 1e9, bottom = -1e9, horizontal = [];
+    function addSpan(from3, fromOpen, to3, toOpen, dir) {
+      let fromCoords = view.coordsAtPos(from3, from3 == line.to ? -2 : 2);
+      let toCoords = view.coordsAtPos(to3, to3 == line.from ? 2 : -2);
+      if (!fromCoords || !toCoords)
+        return;
+      top2 = Math.min(fromCoords.top, toCoords.top, top2);
+      bottom = Math.max(fromCoords.bottom, toCoords.bottom, bottom);
+      if (dir == Direction.LTR)
+        horizontal.push(ltr && fromOpen ? leftSide : fromCoords.left, ltr && toOpen ? rightSide : toCoords.right);
+      else
+        horizontal.push(!ltr && toOpen ? leftSide : toCoords.left, !ltr && fromOpen ? rightSide : fromCoords.right);
+    }
+    let start = from2 !== null && from2 !== void 0 ? from2 : line.from, end = to2 !== null && to2 !== void 0 ? to2 : line.to;
+    for (let r of view.visibleRanges)
+      if (r.to > start && r.from < end) {
+        for (let pos = Math.max(r.from, start), endPos = Math.min(r.to, end); ; ) {
+          let docLine = view.state.doc.lineAt(pos);
+          for (let span of view.bidiSpans(docLine)) {
+            let spanFrom = span.from + docLine.from, spanTo = span.to + docLine.from;
+            if (spanFrom >= endPos)
+              break;
+            if (spanTo > pos)
+              addSpan(Math.max(spanFrom, pos), from2 == null && spanFrom <= start, Math.min(spanTo, endPos), to2 == null && spanTo >= end, span.dir);
+          }
+          pos = docLine.to + 1;
+          if (pos >= endPos)
+            break;
+        }
+      }
+    if (horizontal.length == 0)
+      addSpan(start, from2 == null, end, to2 == null, view.textDirection);
+    return { top: top2, bottom, horizontal };
+  }
+  function drawForWidget(block, top2) {
+    let y = contentRect.top + (top2 ? block.top : block.bottom);
+    return { top: y, bottom: y, horizontal: [] };
+  }
+}
+function sameMarker(a, b) {
+  return a.constructor == b.constructor && a.eq(b);
+}
+var LayerView = class {
+  constructor(view, layer2) {
+    this.view = view;
+    this.layer = layer2;
+    this.drawn = [];
+    this.scaleX = 1;
+    this.scaleY = 1;
+    this.measureReq = { read: this.measure.bind(this), write: this.draw.bind(this) };
+    this.dom = view.scrollDOM.appendChild(document.createElement("div"));
+    this.dom.classList.add("cm-layer");
+    if (layer2.above)
+      this.dom.classList.add("cm-layer-above");
+    if (layer2.class)
+      this.dom.classList.add(layer2.class);
+    this.scale();
+    this.dom.setAttribute("aria-hidden", "true");
+    this.setOrder(view.state);
+    view.requestMeasure(this.measureReq);
+    if (layer2.mount)
+      layer2.mount(this.dom, view);
+  }
+  update(update) {
+    if (update.startState.facet(layerOrder) != update.state.facet(layerOrder))
+      this.setOrder(update.state);
+    if (this.layer.update(update, this.dom) || update.geometryChanged) {
+      this.scale();
+      update.view.requestMeasure(this.measureReq);
+    }
+  }
+  docViewUpdate(view) {
+    if (this.layer.updateOnDocViewUpdate !== false)
+      view.requestMeasure(this.measureReq);
+  }
+  setOrder(state) {
+    let pos = 0, order = state.facet(layerOrder);
+    while (pos < order.length && order[pos] != this.layer)
+      pos++;
+    this.dom.style.zIndex = String((this.layer.above ? 150 : -1) - pos);
+  }
+  measure() {
+    return this.layer.markers(this.view);
+  }
+  scale() {
+    let { scaleX, scaleY } = this.view;
+    if (scaleX != this.scaleX || scaleY != this.scaleY) {
+      this.scaleX = scaleX;
+      this.scaleY = scaleY;
+      this.dom.style.transform = `scale(${1 / scaleX}, ${1 / scaleY})`;
+    }
+  }
+  draw(markers) {
+    if (markers.length != this.drawn.length || markers.some((p, i) => !sameMarker(p, this.drawn[i]))) {
+      let old = this.dom.firstChild, oldI = 0;
+      for (let marker of markers) {
+        if (marker.update && old && marker.constructor && this.drawn[oldI].constructor && marker.update(old, this.drawn[oldI])) {
+          old = old.nextSibling;
+          oldI++;
+        } else {
+          this.dom.insertBefore(marker.draw(), old);
+        }
+      }
+      while (old) {
+        let next = old.nextSibling;
+        old.remove();
+        old = next;
+      }
+      this.drawn = markers;
+      if (browser.webkit)
+        this.dom.style.display = this.dom.firstChild ? "" : "none";
+    }
+  }
+  destroy() {
+    if (this.layer.destroy)
+      this.layer.destroy(this.dom, this.view);
+    this.dom.remove();
+  }
+};
+var layerOrder = /* @__PURE__ */ Facet.define();
+function layer(config) {
+  return [
+    ViewPlugin.define((v) => new LayerView(v, config)),
+    layerOrder.of(config)
+  ];
+}
+var selectionConfig = /* @__PURE__ */ Facet.define({
+  combine(configs) {
+    return combineConfig(configs, {
+      cursorBlinkRate: 1200,
+      drawRangeCursor: true,
+      iosSelectionHandles: true
+    }, {
+      cursorBlinkRate: (a, b) => Math.min(a, b),
+      drawRangeCursor: (a, b) => a || b
+    });
+  }
+});
+function drawSelection(config = {}) {
+  return [
+    selectionConfig.of(config),
+    cursorLayer,
+    selectionLayer,
+    hideNativeSelection,
+    nativeSelectionHidden.of(true)
+  ];
+}
+function configChanged(update) {
+  return update.startState.facet(selectionConfig) != update.state.facet(selectionConfig);
+}
+var cursorLayer = /* @__PURE__ */ layer({
+  above: true,
+  markers(view) {
+    let { state } = view, conf = state.facet(selectionConfig);
+    let cursors = [];
+    for (let r of state.selection.ranges) {
+      let prim = r == state.selection.main;
+      if (r.empty || conf.drawRangeCursor && !(prim && browser.ios && conf.iosSelectionHandles)) {
+        let className = prim ? "cm-cursor cm-cursor-primary" : "cm-cursor cm-cursor-secondary";
+        let cursor = r.empty ? r : EditorSelection.cursor(r.head, r.assoc);
+        for (let piece of RectangleMarker.forRange(view, className, cursor))
+          cursors.push(piece);
+      }
+    }
+    return cursors;
+  },
+  update(update, dom) {
+    if (update.transactions.some((tr) => tr.selection))
+      dom.style.animationName = dom.style.animationName == "cm-blink" ? "cm-blink2" : "cm-blink";
+    let confChange = configChanged(update);
+    if (confChange)
+      setBlinkRate(update.state, dom);
+    return update.docChanged || update.selectionSet || confChange;
+  },
+  mount(dom, view) {
+    setBlinkRate(view.state, dom);
+  },
+  class: "cm-cursorLayer"
+});
+function setBlinkRate(state, dom) {
+  dom.style.animationDuration = state.facet(selectionConfig).cursorBlinkRate + "ms";
+}
+var selectionLayer = /* @__PURE__ */ layer({
+  above: false,
+  markers(view) {
+    let markers = [], { main, ranges } = view.state.selection;
+    for (let r of ranges)
+      if (!r.empty) {
+        for (let marker of RectangleMarker.forRange(view, "cm-selectionBackground", r))
+          markers.push(marker);
+      }
+    if (browser.ios && !main.empty && view.state.facet(selectionConfig).iosSelectionHandles) {
+      for (let piece of RectangleMarker.forRange(view, "cm-selectionHandle cm-selectionHandle-start", EditorSelection.cursor(main.from, 1)))
+        markers.push(piece);
+      for (let piece of RectangleMarker.forRange(view, "cm-selectionHandle cm-selectionHandle-end", EditorSelection.cursor(main.to, 1)))
+        markers.push(piece);
+    }
+    return markers;
+  },
+  update(update, dom) {
+    return update.docChanged || update.selectionSet || update.viewportChanged || configChanged(update);
+  },
+  class: "cm-selectionLayer"
+});
 var selectionBg = browser.gecko && browser.gecko_version == 153 ? "#ffffff01" : "transparent";
 var hideNativeSelection = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ EditorView.theme({
   ".cm-line": {
@@ -12115,7 +12427,124 @@ var hideNativeSelection = /* @__PURE__ */ Prec.highest(/* @__PURE__ */ EditorVie
     }
   }
 }));
+var setDropCursorPos = /* @__PURE__ */ StateEffect.define({
+  map(pos, mapping) {
+    return pos == null ? null : mapping.mapPos(pos);
+  }
+});
+var dropCursorPos = /* @__PURE__ */ StateField.define({
+  create() {
+    return null;
+  },
+  update(pos, tr) {
+    if (pos != null)
+      pos = tr.changes.mapPos(pos);
+    return tr.effects.reduce((pos2, e) => e.is(setDropCursorPos) ? e.value : pos2, pos);
+  }
+});
+var drawDropCursor = /* @__PURE__ */ ViewPlugin.fromClass(class {
+  constructor(view) {
+    this.view = view;
+    this.cursor = null;
+    this.measureReq = { read: this.readPos.bind(this), write: this.drawCursor.bind(this) };
+  }
+  update(update) {
+    var _a2;
+    let cursorPos = update.state.field(dropCursorPos);
+    if (cursorPos == null) {
+      if (this.cursor != null) {
+        (_a2 = this.cursor) === null || _a2 === void 0 ? void 0 : _a2.remove();
+        this.cursor = null;
+      }
+    } else {
+      if (!this.cursor) {
+        this.cursor = this.view.scrollDOM.appendChild(document.createElement("div"));
+        this.cursor.className = "cm-dropCursor";
+      }
+      if (update.startState.field(dropCursorPos) != cursorPos || update.docChanged || update.geometryChanged)
+        this.view.requestMeasure(this.measureReq);
+    }
+  }
+  readPos() {
+    let { view } = this;
+    let pos = view.state.field(dropCursorPos);
+    let rect = pos != null && view.coordsAtPos(pos);
+    if (!rect)
+      return null;
+    let outer = view.scrollDOM.getBoundingClientRect();
+    return {
+      left: rect.left - outer.left + view.scrollDOM.scrollLeft * view.scaleX,
+      top: rect.top - outer.top + view.scrollDOM.scrollTop * view.scaleY,
+      height: rect.bottom - rect.top
+    };
+  }
+  drawCursor(pos) {
+    if (this.cursor) {
+      let { scaleX, scaleY } = this.view;
+      if (pos) {
+        this.cursor.style.left = pos.left / scaleX + "px";
+        this.cursor.style.top = pos.top / scaleY + "px";
+        this.cursor.style.height = pos.height / scaleY + "px";
+      } else {
+        this.cursor.style.left = "-100000px";
+      }
+    }
+  }
+  destroy() {
+    if (this.cursor)
+      this.cursor.remove();
+  }
+  setDropPos(pos) {
+    if (this.view.state.field(dropCursorPos) != pos)
+      this.view.dispatch({ effects: setDropCursorPos.of(pos) });
+  }
+}, {
+  eventObservers: {
+    dragover(event) {
+      this.setDropPos(this.view.posAtCoords({ x: event.clientX, y: event.clientY }));
+    },
+    dragleave(event) {
+      if (event.target == this.view.contentDOM || !this.view.contentDOM.contains(event.relatedTarget))
+        this.setDropPos(null);
+    },
+    dragend() {
+      this.setDropPos(null);
+    },
+    drop() {
+      this.setDropPos(null);
+    }
+  }
+});
+function dropCursor() {
+  return [dropCursorPos, drawDropCursor];
+}
 var UnicodeRegexpSupport = /x/.unicode != null ? "gu" : "g";
+function highlightActiveLine() {
+  return activeLineHighlighter;
+}
+var lineDeco = /* @__PURE__ */ Decoration.line({ class: "cm-activeLine" });
+var activeLineHighlighter = /* @__PURE__ */ ViewPlugin.fromClass(class {
+  constructor(view) {
+    this.decorations = this.getDeco(view);
+  }
+  update(update) {
+    if (update.docChanged || update.selectionSet)
+      this.decorations = this.getDeco(update.view);
+  }
+  getDeco(view) {
+    let lastLineStart = -1, deco = [];
+    for (let r of view.state.selection.ranges) {
+      let line = view.lineBlockAt(r.head);
+      if (line.from > lastLineStart) {
+        deco.push(lineDeco.range(line.from));
+        lastLineStart = line.from;
+      }
+    }
+    return Decoration.set(deco);
+  }
+}, {
+  decorations: (v) => v.decorations
+});
 var baseTheme = /* @__PURE__ */ EditorView.baseTheme({
   ".cm-tooltip": {
     zIndex: 500,
@@ -24704,7 +25133,6 @@ var highlight = HighlightStyle.define([
   { tag: tags.quote, class: "cm-quote" }
 ]);
 function createEditor(parent, host) {
-  let readOnly3 = false;
   const readOnlyCompartment = EditorState.readOnly.of(false);
   const view = new EditorView({
     parent,
@@ -24718,6 +25146,14 @@ function createEditor(parent, host) {
           ...historyKeymap
         ]),
         markdown({ base: markdownLanguage }),
+        // The caret and the active line, explicitly. CodeMirror draws neither
+        // by default, and without them there is no way to tell where you are --
+        // which matters more here than in a code editor, because the
+        // concealment means the line under the cursor is the one showing its
+        // syntax.
+        drawSelection(),
+        dropCursor(),
+        highlightActiveLine(),
         syntaxHighlighting(highlight),
         liveMarkers,
         EditorView.lineWrapping,
@@ -24737,8 +25173,8 @@ function createEditor(parent, host) {
       });
     },
     getDoc: () => view.state.doc.toString(),
+    focus: () => view.focus(),
     setReadOnly(on) {
-      readOnly3 = on;
       view.contentDOM.setAttribute("contenteditable", String(!on));
       view.dom.classList.toggle("is-readonly", on);
     }
@@ -24895,6 +25331,7 @@ async function openNote(uuid) {
   allowShared = false;
   editor.setDoc(saved);
   editor.setReadOnly(readOnly2());
+  if (!readOnly2()) editor.focus();
   showBanner();
   drawList();
 }

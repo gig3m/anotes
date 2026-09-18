@@ -170,6 +170,8 @@ async function openNote(uuid: string): Promise<void> {
   allowShared = false;
   editor.setDoc(saved);
   editor.setReadOnly(readOnly());
+  // Without focus there is no caret, and no way to see where you are.
+  if (!readOnly()) editor.focus();
   showBanner();
   drawList();
 }
