@@ -34,6 +34,7 @@ pub fn build(app: &adw::Application) {
         client,
         folder: RefCell::new(String::new()),
         open: RefCell::new(None),
+        allow_shared: RefCell::new(false),
     });
 
     let panes = Panes::new();
@@ -51,6 +52,10 @@ struct State {
     folder: RefCell<String>,
     /// The note currently in the editor, as last loaded from the daemon.
     open: RefCell<Option<Note>>,
+    /// Set when the user has explicitly taken responsibility for editing a
+    /// note owned by someone else. Per-note, and cleared whenever another is
+    /// opened: agreeing once must not quietly apply to the next one.
+    allow_shared: RefCell<bool>,
 }
 
 struct Panes {
@@ -237,6 +242,20 @@ impl Panes {
             self.save.connect_clicked(move |_| save_note(&s, &p));
         }
 
+        // Taking responsibility for a note owned by someone else. It says what
+        // is being agreed to, because "Edit anyway" on its own does not: the
+        // change leaves this machine.
+        {
+            let (s, p) = (state.clone(), self.clone());
+            self.banner.connect_button_clicked(move |_| {
+                *s.allow_shared.borrow_mut() = true;
+                p.body.set_editable(true);
+                p.banner.set_title("Editing a note you do not own — saving syncs it to them");
+                p.banner.set_button_label(None);
+                p.body.grab_focus();
+            });
+        }
+
         // A new note starts in the folder that is selected, which is where
         // someone looking at that folder means to put it.
         {
@@ -319,24 +338,30 @@ fn show_note(state: &Rc<State>, panes: &Rc<Panes>, note: Note) {
         );
         panes.banner.set_revealed(true);
     } else if !note.body_error.is_empty() {
+        panes.banner.set_button_label(None);
         panes.banner.set_title(&format!("This note could not be read: {}", note.body_error));
         panes.banner.set_revealed(true);
     } else if !note.destroys.is_empty() {
+        panes.banner.set_button_label(None);
         panes.banner.set_title(&format!(
             "Read-only here: saving would remove {}. Edit it in Notes.app.",
             note.destroys.join(", ")
         ));
         panes.banner.set_revealed(true);
     } else if !note.degrades.is_empty() {
+        panes.banner.set_button_label(None);
         panes.banner.set_title(&format!(
             "Saving will flatten {} — no text is lost.",
             note.degrades.join(", ")
         ));
         panes.banner.set_revealed(true);
     } else {
+        panes.banner.set_button_label(None);
         panes.banner.set_revealed(false);
     }
 
+    // Opening a note clears any agreement made about the previous one.
+    *state.allow_shared.borrow_mut() = false;
     panes.save.set_sensitive(false);
     *state.open.borrow_mut() = Some(note);
 }
@@ -355,13 +380,10 @@ fn save_note(state: &Rc<State>, panes: &Rc<Panes>) {
     panes.save.set_sensitive(false);
     let client = state.client.clone();
     let uuid = note.uuid.clone();
+    let allow_shared = *state.allow_shared.borrow();
     let (s, p) = (state.clone(), panes.clone());
     spawn(
-        // Never true: a note owned by someone else is not editable here, so
-        // there is no path from this window to a write that syncs to them.
-        // Offering the override would mean offering it in a window that cannot
-        // show who the owner is.
-        move || client.replace(&uuid, &text, false, false),
+        move || client.replace(&uuid, &text, false, allow_shared),
         move |res| match res {
             Ok(resp) => {
                 if resp.degraded.is_empty() {

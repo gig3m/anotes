@@ -6,6 +6,7 @@
 //! Markdown -- is `markdown`'s problem.
 
 use crate::markdown::{doc_markdown, BlockKind, Rendered, Span, Style};
+use adw::prelude::*;
 use gtk::prelude::*;
 use gtk::{TextBuffer, TextIter, TextTag};
 
@@ -58,8 +59,23 @@ pub fn install_tags(buffer: &TextBuffer) {
     add(TextTag::builder().name("fence").family("monospace").build());
     add(TextTag::builder().name(SUP).rise(6000).scale(0.7).build());
     add(TextTag::builder().name(SUB).rise(-3000).scale(0.7).build());
-    add(TextTag::builder().name(LINK)
-        .underline(gtk::pango::Underline::Single).foreground("#3584e4").build());
+    // The accent belongs to whatever theme is loaded. A hardcoded blue sits
+    // wrong on every palette that is not Adwaita's, and a link with no colour
+    // at all is hard to pick out, so it is taken from the style manager and
+    // followed when the theme changes.
+    let link = TextTag::builder()
+        .name(LINK)
+        .underline(gtk::pango::Underline::Single)
+        .build();
+    let manager = adw::StyleManager::default();
+    link.set_foreground_rgba(Some(&manager.accent_color_rgba()));
+    {
+        let link = link.clone();
+        manager.connect_accent_color_notify(move |m| {
+            link.set_foreground_rgba(Some(&m.accent_color_rgba()));
+        });
+    }
+    add(link);
     add(TextTag::builder().name(MARKER).build());
     for n in ["li-bullet", "li-dash", "li-number", "li-check", "li-check-done"] {
         add(TextTag::builder().name(n).build());
