@@ -197,6 +197,9 @@ var notes = [];
 var current = null;
 var allowShared = false;
 var editing = false;
+var saved = "";
+var saveTimer;
+var saving = false;
 function say(text, isError = false) {
   statusEl.textContent = text;
   statusEl.classList.toggle("error", isError);
@@ -352,12 +355,14 @@ function drawList() {
   );
 }
 async function openNote(uuid) {
+  if (editing) await save();
   const r = await anotes.note(uuid);
   if (failed(r)) {
     say(r.error, true);
     return;
   }
   current = r.ok;
+  saved = current.markdown ?? "";
   allowShared = false;
   editing = false;
   sourceEl.hidden = true;
@@ -367,19 +372,31 @@ async function openNote(uuid) {
   drawList();
 }
 async function save() {
-  if (!current || readOnly()) return;
+  clearTimeout(saveTimer);
+  if (!current || readOnly() || saving) return;
   const md = editing ? sourceEl.value : current.markdown ?? "";
+  if (md === saved) return;
   if (!md.trim()) {
     say("Refusing to empty the note.", true);
     return;
   }
-  const r = await anotes.save(current.uuid, md, allowShared);
+  saving = true;
+  say("Saving\u2026");
+  const uuid = current.uuid;
+  const r = await anotes.save(uuid, md, allowShared);
+  saving = false;
   if (failed(r)) {
     say(r.destroys?.length ? `Not saved \u2014 would remove ${r.destroys.join(", ")}` : `Not saved: ${r.error}`, true);
     return;
   }
-  current.markdown = md;
+  saved = md;
+  if (current?.uuid === uuid) current.markdown = md;
   say(r.ok.degraded?.length ? `Saved; flattened ${r.ok.degraded.join(", ")}` : "Saved.");
+}
+var SAVE_AFTER_TYPING = 1200;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, SAVE_AFTER_TYPING);
 }
 searchEl.oninput = async () => {
   const q = searchEl.value.trim();
@@ -395,6 +412,19 @@ searchEl.oninput = async () => {
   notes = r.ok;
   drawList();
 };
+sourceEl.oninput = () => {
+  if (editing) scheduleSave();
+};
+async function stopEditing() {
+  if (!editing) return;
+  const md = sourceEl.value;
+  await save();
+  editing = false;
+  if (current) current.markdown = md;
+  renderNote(md);
+  sourceEl.hidden = true;
+  bodyEl.hidden = false;
+}
 bodyEl.onclick = (e) => {
   const link = e.target.closest("a");
   if (link) {
@@ -416,11 +446,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "Escape") {
     if (editing && current) {
-      editing = false;
-      renderNote(sourceEl.value);
-      current.markdown = sourceEl.value;
-      sourceEl.hidden = true;
-      bodyEl.hidden = false;
+      stopEditing();
     } else if (document.activeElement === searchEl) {
       searchEl.value = "";
       searchEl.blur();
@@ -432,6 +458,9 @@ document.addEventListener("keydown", (e) => {
     searchEl.focus();
     searchEl.select();
   }
+});
+window.addEventListener("beforeunload", () => {
+  if (editing) save();
 });
 anotes.onPalette(applyPalette);
 anotes.palette().then(applyPalette);
