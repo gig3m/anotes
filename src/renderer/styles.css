@@ -190,14 +190,28 @@ main { flex: 1; display: flex; min-height: 0; }
    the full width instead of stopping short of the margin. */
 .cm-line { padding: 0 20px; }
 .cm-content { caret-color: var(--accent); }
-/* Drawn by CodeMirror rather than the browser, so it needs a width as well as
-   a colour, and it has to stay visible when the window loses focus -- a note
-   you have clicked away from should still show where you were. */
+/* A block caret, as a terminal draws it.
+   CodeMirror builds the cursor out of a left border, so the border is dropped
+   and the element given a width instead. `ch` is the width of "0" in the
+   editor's own font, which is the closest thing to a cell in a proportional
+   face -- the note is prose, so there is no real cell to match.
+   The glyph underneath is inverted rather than covered: a solid block hides the
+   character you are standing on, which is exactly the one you are looking at. */
 .cm-cursor, .cm-dropCursor {
-  border-left: 2px solid var(--accent);
-  margin-left: -1px;
+  border: none;
+  width: 1ch;
+  background: var(--accent);
+  mix-blend-mode: difference;
 }
-.cm-editor:not(.cm-focused) .cm-cursor { display: block; opacity: 0.45; }
+/* Hollow when the window is not focused, the way a terminal shows an inactive
+   cursor: still findable, clearly not where the typing will go. */
+.cm-editor:not(.cm-focused) .cm-cursor {
+  display: block;
+  background: transparent;
+  mix-blend-mode: normal;
+  box-shadow: inset 0 0 0 1px var(--accent);
+  opacity: 0.7;
+}
 .cm-selectionBackground, .cm-editor ::selection { background: var(--selection) !important; }
 /* Where you are, said twice: a tint across the line and a bar in the margin.
    The caret alone is two pixels of a blinking line in a wall of prose, and on a
