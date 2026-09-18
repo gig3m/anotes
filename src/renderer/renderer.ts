@@ -29,6 +29,7 @@ const editorEl = $("editor");
 const bannerEl = $("banner");
 const statusEl = $("status");
 const searchEl = $<HTMLInputElement>("search");
+const newEl = $<HTMLButtonElement>("new");
 
 let folder = "";
 let notes: Note[] = [];
@@ -235,6 +236,29 @@ function scheduleSave(): void {
   saveTimer = setTimeout(save, SAVE_AFTER_TYPING) as unknown as number;
 }
 
+/**
+ * Make a note in the folder that is showing.
+ *
+ * It starts with a placeholder title, selected, because Notes takes a note's
+ * first line as its name and an untitled note is hard to find again. The
+ * daemon refuses an empty body, so there is nothing to create without one.
+ */
+async function newNote(): Promise<void> {
+  await save();
+  const r = await anotes.create(folder, "New note\n");
+  if (failed(r)) { say(r.error, true); return; }
+  await loadNotes();
+  const uuid = r.ok.uuid;
+  if (!uuid) {
+    // Created, but Notes.app has not written it to the database yet, so there
+    // is no id to open. It will appear in the list on the next refresh.
+    say("Created. It will appear shortly.");
+    return;
+  }
+  await openNote(uuid);
+  editor.selectFirstLine();
+}
+
 // ---- input
 
 searchEl.oninput = async () => {
@@ -251,8 +275,11 @@ const editor = createEditor(editorEl, {
   onSave: () => { save(); },
 });
 
+newEl.onclick = () => { newNote(); };
+
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "s") { e.preventDefault(); save(); }
+  if (e.ctrlKey && e.key === "n") { e.preventDefault(); newNote(); }
   if (e.key === "Escape") {
     if (document.activeElement === searchEl) {
       searchEl.value = "";

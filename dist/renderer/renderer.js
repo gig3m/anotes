@@ -25174,6 +25174,13 @@ function createEditor(parent, host) {
     },
     getDoc: () => view.state.doc.toString(),
     focus: () => view.focus(),
+    // A new note opens with its placeholder title selected, so the first thing
+    // typed replaces it rather than landing beside it.
+    selectFirstLine() {
+      const line = view.state.doc.line(1);
+      view.dispatch({ selection: { anchor: line.from, head: line.to } });
+      view.focus();
+    },
     setReadOnly(on) {
       view.contentDOM.setAttribute("contenteditable", String(!on));
       view.dom.classList.toggle("is-readonly", on);
@@ -25189,6 +25196,7 @@ var editorEl = $("editor");
 var bannerEl = $("banner");
 var statusEl = $("status");
 var searchEl = $("search");
+var newEl = $("new");
 var folder = "";
 var notes = [];
 var current = null;
@@ -25372,6 +25380,22 @@ function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(save, SAVE_AFTER_TYPING);
 }
+async function newNote() {
+  await save();
+  const r = await anotes.create(folder, "New note\n");
+  if (failed(r)) {
+    say(r.error, true);
+    return;
+  }
+  await loadNotes();
+  const uuid = r.ok.uuid;
+  if (!uuid) {
+    say("Created. It will appear shortly.");
+    return;
+  }
+  await openNote(uuid);
+  editor.selectFirstLine();
+}
 searchEl.oninput = async () => {
   const q = searchEl.value.trim();
   if (!q) {
@@ -25392,10 +25416,17 @@ var editor = createEditor(editorEl, {
     save();
   }
 });
+newEl.onclick = () => {
+  newNote();
+};
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "s") {
     e.preventDefault();
     save();
+  }
+  if (e.ctrlKey && e.key === "n") {
+    e.preventDefault();
+    newNote();
   }
   if (e.key === "Escape") {
     if (document.activeElement === searchEl) {

@@ -113,6 +113,7 @@ export function createEditor(parent: HTMLElement, host: EditorHost): {
   getDoc(): string;
   setReadOnly(on: boolean): void;
   focus(): void;
+  selectFirstLine(): void;
 } {
   const readOnlyCompartment: Extension = EditorState.readOnly.of(false);
 
@@ -157,6 +158,13 @@ export function createEditor(parent: HTMLElement, host: EditorHost): {
     },
     getDoc: () => view.state.doc.toString(),
     focus: () => view.focus(),
+    // A new note opens with its placeholder title selected, so the first thing
+    // typed replaces it rather than landing beside it.
+    selectFirstLine() {
+      const line = view.state.doc.line(1);
+      view.dispatch({ selection: { anchor: line.from, head: line.to } });
+      view.focus();
+    },
     setReadOnly(on: boolean) {
       view.contentDOM.setAttribute("contenteditable", String(!on));
       view.dom.classList.toggle("is-readonly", on);

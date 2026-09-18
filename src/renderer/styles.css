@@ -83,6 +83,23 @@ header h1 {
 #search::placeholder { color: var(--dark-foreground); }
 #search::-webkit-search-cancel-button { appearance: none; }
 
+/* Square, bordered, mono -- the same weight as the search field beside it. A
+   round accent-filled button would be the only one in the app. */
+#new {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  background: var(--dark-background);
+  border: 1px solid var(--muted);
+  border-radius: 0;
+  color: var(--foreground);
+  font: var(--text-mono) var(--mono-font);
+  line-height: 1;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+#new:hover { border-color: var(--accent); color: var(--bright-foreground); }
+
 #status {
   color: var(--dark-foreground);
   font: var(--text-mono-small)/1.4 var(--mono-font);
