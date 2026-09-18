@@ -112,16 +112,20 @@ impl Client {
         let base = std::env::var("NOTESD_URL")
             .ok()
             .filter(|s| !s.trim().is_empty())
+            // A desktop launcher starts with almost no environment, so the URL
+            // has to be readable from disk as well -- the same place, and the
+            // same convention, as the token.
+            .or_else(|| config_file("url"))
             .ok_or_else(|| {
-                "No daemon configured.\n\nSet NOTESD_URL to the applenotes daemon on your Mac, \
-                 for example http://100.96.91.16:8437"
+                "No daemon configured.\n\nSet NOTESD_URL, or put the daemon's URL in \
+                 ~/.config/applenotes/url"
                     .to_string()
             })?;
 
         let token = std::env::var("NOTESD_TOKEN")
             .ok()
             .filter(|s| !s.trim().is_empty())
-            .or_else(token_from_config)
+            .or_else(|| config_file("token"))
             .ok_or_else(|| {
                 "No token.\n\nSet NOTESD_TOKEN, or put the token in \
                  ~/.config/applenotes/token"
@@ -241,8 +245,12 @@ impl Client {
     }
 }
 
-fn token_from_config() -> Option<String> {
+/// Reads a single-line setting from ~/.config/applenotes/<name>.
+fn config_file(name: &str) -> Option<String> {
     let home = std::env::var("HOME").ok()?;
-    let path = std::path::Path::new(&home).join(".config/applenotes/token");
-    std::fs::read_to_string(path).ok().map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
+    let path = std::path::Path::new(&home).join(".config/applenotes").join(name);
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
 }

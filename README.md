@@ -22,7 +22,17 @@ set up for one needs nothing further:
 
 ```sh
 export NOTESD_URL=http://<mac-tailnet-ip>:8437
-export NOTESD_TOKEN=...      # or put it in ~/.config/applenotes/token
+export NOTESD_TOKEN=...
+anotes
+```
+
+A desktop launcher starts with almost no environment, so both settings can live
+on disk instead:
+
+```sh
+mkdir -p ~/.config/applenotes
+echo http://<mac-tailnet-ip>:8437 > ~/.config/applenotes/url
+install -m600 /dev/stdin ~/.config/applenotes/token <<< "$TOKEN"
 anotes
 ```
 
