@@ -10,7 +10,7 @@
     "build:preload": "esbuild src/preload/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload/preload.cjs",
     "build:renderer": "esbuild src/renderer/renderer.ts --bundle --format=esm --outfile=dist/renderer/renderer.js",
     "typecheck": "tsc --noEmit",
-    "test": "node test/markdown.test.js",
+    "test": "echo \"no unit tests: the editor holds Markdown, so there is nothing to convert\" && exit 0",
     "install-desktop": "node scripts/install-desktop.js"
   },
   "devDependencies": {
@@ -22,5 +22,13 @@
     "electron@34.5.8": true,
     "esbuild@0.24.2": true
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.5",
+    "@codemirror/view": "^6.43.12",
+    "@lezer/highlight": "^1.2.3"
+  }
 }

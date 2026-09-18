@@ -14,6 +14,9 @@
   --red: #ff7b72;
   --green: #3fb950;
   --yellow: #d29922;
+  --blue: #58a6ff;
+  --magenta: #bc8cff;
+  --cyan: #39c5cf;
 
   /* Two faces, by role rather than taste. Mono carries the chrome -- folders,
      titles, dates, counts -- where it aligns on a grid for free and matches the
@@ -171,32 +174,44 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 #banner button:hover { border-color: var(--accent); color: var(--bright-foreground); }
 
-#body, #source {
-  flex: 1;
+/* The editor is one surface: the document is Markdown and stays Markdown, so
+   what follows is colour and weight on the source rather than a rendering of
+   it. Heading levels take the terminal colours, which is what Omarchy's own
+   Obsidian theme does, so a note looks the same in both. */
+#editor { flex: 1; min-height: 0; overflow: hidden; }
+.cm-editor { height: 100%; background: var(--background); color: var(--foreground); }
+.cm-editor.cm-focused { outline: none; }
+.cm-scroller {
+  font: var(--text)/1.7 var(--ui-font);
+  padding: 14px 20px;
   overflow-y: auto;
-  padding: 18px 22px;
-  margin: 0;
 }
-/* The note is prose. Everything outside it is chrome and stays mono. */
-#body { font: var(--text)/1.65 var(--ui-font); color: var(--foreground); }
-#body h1 { font: 600 19px/1.3 var(--ui-font); color: var(--bright-foreground); margin: 14px 0 6px; }
-#body h2 { font: 600 15px/1.3 var(--ui-font); color: var(--bright-foreground); margin: 12px 0 4px; }
-#body h3 { font: 600 13px/1.3 var(--ui-font); color: var(--bright-foreground); margin: 10px 0 3px; }
-#body p { margin: 0 0 2px; min-height: 1.65em; }
-#body a { color: var(--accent); }
-#body code { font: var(--text-mono) var(--mono-font); color: var(--green); }
-#body .marker { color: var(--muted); user-select: none; }
-#body .line { display: flex; gap: 6px; }
-#body .line > .text { flex: 1; min-width: 0; }
+.cm-content { caret-color: var(--accent); }
+.cm-cursor { border-left-color: var(--accent); }
+.cm-selectionBackground, .cm-editor ::selection { background: var(--selection) !important; }
+.cm-activeLine { background: color-mix(in srgb, var(--lighter-background) 45%, transparent); }
+.cm-gutters { display: none; }
+.cm-editor.is-readonly .cm-content { color: var(--dark-foreground); }
+.cm-editor.is-readonly .cm-cursor { display: none; }
 
-#source {
-  background: var(--background);
-  color: var(--foreground);
-  border: none;
-  resize: none;
-  font: var(--text-mono)/1.7 var(--mono-font);
-  outline: none;
-}
+/* Syntax that is still there, just quiet -- and only on the line the cursor is
+   on. Everywhere else it is replaced entirely. */
+.cm-formatting { color: var(--muted); }
+
+.cm-h1 { font: 600 20px/1.35 var(--ui-font); color: var(--red); }
+.cm-h2 { font: 600 17px/1.35 var(--ui-font); color: var(--green); }
+.cm-h3 { font: 600 15px/1.35 var(--ui-font); color: var(--yellow); }
+.cm-h4 { font: 600 13px/1.4 var(--ui-font); color: var(--blue); }
+.cm-h5, .cm-h6 { font: 600 12px/1.4 var(--ui-font); color: var(--magenta); }
+
+.cm-strong { font-weight: 700; color: var(--bright-foreground); }
+.cm-em { font-style: italic; }
+.cm-strike { text-decoration: line-through; color: var(--dark-foreground); }
+.cm-code { font-family: var(--mono-font); font-size: var(--text-mono); color: var(--cyan); }
+.cm-link { color: var(--accent); }
+.cm-url { color: var(--muted); font-family: var(--mono-font); font-size: var(--text-mono-small); }
+.cm-list { color: var(--accent); }
+.cm-quote { color: var(--dark-foreground); font-style: italic; }
 
 #empty {
   margin: auto;

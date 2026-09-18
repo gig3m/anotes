@@ -1,4 +1,4 @@
-import { parseDoc, docMarkdown, markerFor } from "../core/markdown.js";
+import { createEditor } from "./editor.ts";
 
 // The window. Everything that talks to the daemon goes through the preload
 // bridge, so the token never reaches here.
@@ -25,8 +25,7 @@ interface Note {
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const foldersEl = $("folders");
 const listEl = $<HTMLUListElement>("list");
-const bodyEl = $("body");
-const sourceEl = $<HTMLTextAreaElement>("source");
+const editorEl = $("editor");
 const bannerEl = $("banner");
 const statusEl = $("status");
 const searchEl = $<HTMLInputElement>("search");
@@ -38,7 +37,6 @@ let current: Note | null = null;
 // Per note, and cleared whenever another opens: agreeing once must not quietly
 // apply to the next one.
 let allowShared = false;
-let editing = false;
 /** What the daemon last accepted, so an unchanged buffer is never rewritten. */
 let saved = "";
 let saveTimer: number | undefined;
@@ -62,58 +60,17 @@ function applyPalette(p: Record<string, string>): void {
     foreground: "--foreground", darkForeground: "--dark-foreground",
     brightForeground: "--bright-foreground", muted: "--muted", accent: "--accent",
     selection: "--selection", red: "--red", green: "--green", yellow: "--yellow",
+    blue: "--blue", magenta: "--magenta", cyan: "--cyan",
   };
   for (const [key, cssVar] of Object.entries(map)) {
     if (p[key]) document.documentElement.style.setProperty(cssVar, p[key]!);
   }
 }
 
-// ---- rendering
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-/** One span, with its styling. Read-only, so this never has to be parsed back. */
-function spanHtml(sp: { text: string; style: Record<string, unknown> }): string {
-  let t = escapeHtml(sp.text);
-  const st = sp.style;
-  if (st["code"]) t = `<code>${t}</code>`;
-  if (st["sup"]) t = `<sup>${t}</sup>`;
-  if (st["sub"]) t = `<sub>${t}</sub>`;
-  if (st["strike"]) t = `<s>${t}</s>`;
-  if (st["bold"]) t = `<b>${t}</b>`;
-  if (st["italic"]) t = `<i>${t}</i>`;
-  if (typeof st["href"] === "string") {
-    t = `<a href="${escapeHtml(st["href"])}">${t}</a>`;
-  }
-  return t;
-}
-
-function renderNote(md: string): void {
-  const lines = parseDoc(md) as Array<{
-    block: string; depth: number; number?: number;
-    spans: Array<{ text: string; style: Record<string, unknown> }>;
-  }>;
-  const tagFor: Record<string, string> = { title: "h1", heading: "h2", subhead: "h3" };
-  bodyEl.innerHTML = lines
-    .map((line) => {
-      const inner = line.spans.map(spanHtml).join("") || "&nbsp;";
-      const tag = tagFor[line.block] ?? "p";
-      const indent = line.depth ? ` style="padding-left:${line.depth * 20}px"` : "";
-      // The marker is drawn rather than left in the text, as Notes shows it: a
-      // bullet, not "- ".
-      const marker = line.block === "number" ? `${line.number}. ` : markerFor(line.block);
-      if (marker) {
-        return `<div class="line"${indent}><span class="marker">${escapeHtml(marker)}</span><span class="text">${inner}</span></div>`;
-      }
-      if (line.block === "code" || line.block === "fence") {
-        return `<div class="line"${indent}><code class="text">${inner}</code></div>`;
-      }
-      return `<${tag}${indent}>${inner}</${tag}>`;
-    })
-    .join("");
-}
+// Rendering is gone: the document is Markdown and CodeMirror decorates it in
+// place, so there is nothing to convert and nothing to convert back. That is
+// what makes editing safe here -- not a round-trip test, but the absence of a
+// round trip.
 
 // ---- banner
 
@@ -205,16 +162,14 @@ function drawList(): void {
 
 async function openNote(uuid: string): Promise<void> {
   // Switching away is not a reason to lose what was typed.
-  if (editing) await save();
+  await save();
   const r = await anotes.note(uuid);
   if (failed(r)) { say(r.error, true); return; }
   current = r.ok;
   saved = current.markdown ?? "";
   allowShared = false;
-  editing = false;
-  sourceEl.hidden = true;
-  bodyEl.hidden = false;
-  renderNote(current.markdown ?? "");
+  editor.setDoc(saved);
+  editor.setReadOnly(readOnly());
   showBanner();
   drawList();
 }
@@ -229,7 +184,7 @@ async function openNote(uuid: string): Promise<void> {
 async function save(): Promise<void> {
   clearTimeout(saveTimer);
   if (!current || readOnly() || saving) return;
-  const md = editing ? sourceEl.value : (current.markdown ?? "");
+  const md = editor.getDoc();
   if (md === saved) return;
   if (!md.trim()) { say("Refusing to empty the note.", true); return; }
 
@@ -271,45 +226,15 @@ searchEl.oninput = async () => {
   drawList();
 };
 
-sourceEl.oninput = () => { if (editing) scheduleSave(); };
-
-/** Leave the editor, saving rather than pretending to. */
-async function stopEditing(): Promise<void> {
-  if (!editing) return;
-  const md = sourceEl.value;
-  await save();
-  editing = false;
-  if (current) current.markdown = md;
-  renderNote(md);
-  sourceEl.hidden = true;
-  bodyEl.hidden = false;
-}
-
-bodyEl.onclick = (e) => {
-  const link = (e.target as HTMLElement).closest("a");
-  if (link) {
-    e.preventDefault();
-    anotes.openExternal(link.getAttribute("href") ?? "");
-    return;
-  }
-  if (readOnly() || !current) return;
-  // Editing is the source, which is what the daemon sent: see README.
-  editing = true;
-  sourceEl.value = current.markdown ?? "";
-  bodyEl.hidden = true;
-  sourceEl.hidden = false;
-  sourceEl.focus();
-};
+const editor = createEditor(editorEl, {
+  onChange: () => scheduleSave(),
+  onSave: () => { save(); },
+});
 
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey && e.key === "s") { e.preventDefault(); save(); }
   if (e.key === "Escape") {
-    if (editing && current) {
-      // Previously this re-rendered the buffer and set it as the note's text
-      // without sending it anywhere, so an edit looked committed and was lost
-      // on close.
-      stopEditing();
-    } else if (document.activeElement === searchEl) {
+    if (document.activeElement === searchEl) {
       searchEl.value = "";
       searchEl.blur();
       loadNotes();
@@ -321,7 +246,7 @@ document.addEventListener("keydown", (e) => {
 // A pending save must not be lost to a closing window. The handler is
 // synchronous, so this can only flush what is already in flight -- which is why
 // the debounce is short.
-window.addEventListener("beforeunload", () => { if (editing) save(); });
+window.addEventListener("beforeunload", () => { save(); });
 
 anotes.onPalette(applyPalette);
 anotes.palette().then(applyPalette);

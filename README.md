@@ -42,30 +42,29 @@ the change to them and to everyone else on the share, so those notes open
 read-only and are tagged in the list. "Edit anyway" takes responsibility for one
 note; the agreement clears when you open another.
 
-## Reading and editing
+## Editing
 
-Notes are rendered: headings, bold, italic, strikethrough, code, links,
-superscript, bullet and dash lists, numbering, nesting and checklists. Clicking
-one opens its source.
+One surface, and it always holds Markdown -- the same text the daemon sent.
+Nothing is converted to a rendered document and converted back.
 
-The split is deliberate. Editing rendered text means rebuilding Markdown out of
-the view, and doing that through a rich-text widget would be a second parser --
-one nothing has checked against a real library. `src/core/markdown.js` has that
-guarantee; the view does not. So the rendered pane is exact and read-only, and
-editing hands back the text the daemon sent, unchanged unless you changed it.
+That is Obsidian's Live Preview arrangement, built the way Obsidian builds it:
+CodeMirror decorates the source in place. Syntax markers are dimmed on the line
+the cursor is on and hidden everywhere else, so a heading reads as a heading
+until you go to edit it and the `##` comes back. Heading levels take the
+terminal colours, matching Omarchy's own Obsidian theme.
 
-## Tests
+Saving happens on a pause in typing, on switching notes, and on closing the
+window. An unchanged buffer is never sent: a rewrite costs formatting the daemon
+reports, whether or not anything changed.
 
-```sh
-npm test
-CORPUS=/path/to/markdown/notes npm test   # and against a real library
-```
+### Why there is no Markdown round trip here any more
 
-The corpus check round-trips every note in a directory. Run against a real
-library it found five bugs the hand-written cases missed -- dropped backslash
-escapes that would have turned body text into a numbered list, trimmed leading
-whitespace, code spans parsed as markup, delimiters emitted per run instead of
-per change, and discarded fence markers. It is the test worth keeping.
+Earlier versions of this app rendered notes to a document and rebuilt Markdown
+from it on save. That needs a writer as well as a parser, and the writer is a
+second implementation with its own bugs -- it had five, found by round-tripping
+a real library. Keeping the buffer as Markdown removes the reason that code
+existed, so it is gone rather than kept for reassurance. The escaping rules it
+encoded live where they belong, in the daemon.
 
 ## License
 
