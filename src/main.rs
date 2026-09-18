@@ -1,4 +1,6 @@
 mod client;
+mod markdown;
+mod render;
 mod ui;
 
 use adw::prelude::*;

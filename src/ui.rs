@@ -7,6 +7,7 @@
 //! polling.
 
 use crate::client::{Client, Error, Folder, Note};
+use crate::{markdown, render};
 use adw::prelude::*;
 use gtk::glib;
 use std::cell::RefCell;
@@ -98,6 +99,7 @@ impl Panes {
             .bottom_margin(18)
             .monospace(false)
             .build();
+        render::install_tags(&body.buffer());
         let banner = adw::Banner::new("");
         let save = gtk::Button::builder().label("Save").build();
         save.add_css_class("suggested-action");
@@ -299,7 +301,7 @@ fn open_note(state: &Rc<State>, panes: &Rc<Panes>, uuid: String) {
 
 fn show_note(state: &Rc<State>, panes: &Rc<Panes>, note: Note) {
     panes.stack.set_visible_child_name("note");
-    panes.body.buffer().set_text(&note.markdown);
+    render::apply(&panes.body.buffer(), &markdown::parse_doc(&note.markdown));
     panes.body_page.set_title(if note.title.is_empty() { "Untitled" } else { &note.title });
 
     // A note carrying attachments or checklists cannot survive a rewrite, and
@@ -341,10 +343,10 @@ fn show_note(state: &Rc<State>, panes: &Rc<Panes>, note: Note) {
 
 fn save_note(state: &Rc<State>, panes: &Rc<Panes>) {
     let Some(note) = state.open.borrow().clone() else { return };
-    let buffer = panes.body.buffer();
-    let text = buffer
-        .text(&buffer.start_iter(), &buffer.end_iter(), false)
-        .to_string();
+    // Rebuilt from the buffer's styling rather than read off as plain text:
+    // what is shown has had its markers consumed, so saving the visible
+    // characters would strip every heading and list in the note.
+    let text = render::to_markdown(&panes.body.buffer());
     if text.trim().is_empty() {
         panes.toast("Refusing to empty the note.");
         return;
