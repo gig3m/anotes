@@ -70,10 +70,10 @@ Item {
             color: Color.foreground
             text: htmlFor(modelData)
             font.family: Style.fontFamily
-            font.pixelSize: modelData.block === "title" ? Style.fontSize.large * 1.4
-              : modelData.block === "heading" ? Style.fontSize.large * 1.15
-              : modelData.block === "subhead" ? Style.fontSize.large
-              : Style.fontSize.normal
+            font.pixelSize: modelData.block === "title" ? Style.font.displayLarge
+              : modelData.block === "heading" ? Style.font.display
+              : modelData.block === "subhead" ? Style.font.title
+              : Style.font.body
             font.bold: modelData.block === "title" || modelData.block === "heading"
               || modelData.block === "subhead"
             topPadding: modelData.block === "body" ? 0 : 6
@@ -122,7 +122,7 @@ Item {
       wrapMode: TextArea.Wrap
       color: Color.foreground
       font.family: Style.fontFamily
-      font.pixelSize: Style.fontSize.normal
+      font.pixelSize: Style.font.body
       onTextChanged: if (root.editing) root.edited()
     }
   }

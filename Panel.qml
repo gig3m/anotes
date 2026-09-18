@@ -133,7 +133,7 @@ Panel {
             delegate: Rectangle {
               width: parent.width
               height: 30
-              radius: Style.radius
+              radius: Style.cornerRadius
               color: root.currentFolder === modelData.uuid ? Color.menu.selectedBackground : "transparent"
               Text {
                 anchors.verticalCenter: parent.verticalCenter
@@ -193,7 +193,7 @@ Panel {
                 delegate: Rectangle {
                   width: parent.width
                   height: body.implicitHeight + Style.space(2)
-                  radius: Style.radius
+                  radius: Style.cornerRadius
                   color: root.current && root.current.uuid === modelData.uuid
                     ? Color.menu.selectedBackground : "transparent"
 
@@ -215,7 +215,7 @@ Panel {
                     Text {
                       text: (modelData.modified || "").split("T")[0]
                       color: Color.muted
-                      font.pixelSize: Style.fontSize.small
+                      font.pixelSize: Style.font.caption
                     }
                     // A note owned by someone else is read-only, so it is
                     // marked in the list rather than only once it is opened.
@@ -225,7 +225,7 @@ Panel {
                         : modelData.sharedWithMe ? "Shared with you — read-only"
                         : modelData.shared ? "Shared" : ""
                       color: Color.muted
-                      font.pixelSize: Style.fontSize.small
+                      font.pixelSize: Style.font.caption
                     }
                   }
 
