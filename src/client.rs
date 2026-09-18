@@ -47,6 +47,16 @@ pub struct Note {
     /// Why the body could not be read, when it could not.
     #[serde(default)]
     pub body_error: String,
+    /// In a CloudKit share, either direction.
+    #[serde(default)]
+    pub shared: bool,
+    /// Owned by another iCloud account. Editing one syncs the change to its
+    /// owner and to everyone else on the share, so it is read-only unless the
+    /// write opts in.
+    #[serde(default, rename = "sharedWithMe")]
+    pub shared_with_me: bool,
+    #[serde(default)]
+    pub owner: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -64,6 +74,10 @@ struct WriteRequest<'a> {
     folder: &'a str,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     force: bool,
+    /// Separate from force: one accepts formatting loss in your own note, the
+    /// other accepts editing in someone else's account.
+    #[serde(rename = "allowShared", skip_serializing_if = "std::ops::Not::not")]
+    allow_shared: bool,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -169,9 +183,15 @@ impl Client {
         self.get("/v1/search", &q)
     }
 
-    pub fn replace(&self, uuid: &str, markdown: &str, force: bool) -> Result<WriteResponse> {
+    pub fn replace(
+        &self,
+        uuid: &str,
+        markdown: &str,
+        force: bool,
+        allow_shared: bool,
+    ) -> Result<WriteResponse> {
         let url = format!("{}/v1/notes/{uuid}", self.base);
-        let body = WriteRequest { markdown, folder: "", force };
+        let body = WriteRequest { markdown, folder: "", force, allow_shared };
         let resp = self
             .http
             .put(url)
@@ -184,7 +204,7 @@ impl Client {
 
     pub fn create(&self, folder: &str, markdown: &str) -> Result<WriteResponse> {
         let url = format!("{}/v1/notes", self.base);
-        let body = WriteRequest { markdown, folder, force: false };
+        let body = WriteRequest { markdown, folder, force: false, allow_shared: false };
         let resp = self
             .http
             .post(url)

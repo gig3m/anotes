@@ -306,9 +306,17 @@ fn show_note(state: &Rc<State>, panes: &Rc<Panes>, note: Note) {
     // the daemon will refuse to save it. Saying so up front and making the note
     // read-only is honest; letting someone type into it and fail at save is
     // not.
-    let editable = note.destroys.is_empty() && note.body_error.is_empty();
+    let editable =
+        note.destroys.is_empty() && note.body_error.is_empty() && !note.shared_with_me;
     panes.body.set_editable(editable);
-    if !note.body_error.is_empty() {
+    if note.shared_with_me {
+        // The owner is a CloudKit record id, not a name, so there is nothing
+        // useful to show beyond the fact that it is not yours.
+        panes.banner.set_title(
+            "This note belongs to another iCloud account. Editing it here would sync              the change to its owner, so it is read-only.",
+        );
+        panes.banner.set_revealed(true);
+    } else if !note.body_error.is_empty() {
         panes.banner.set_title(&format!("This note could not be read: {}", note.body_error));
         panes.banner.set_revealed(true);
     } else if !note.destroys.is_empty() {
@@ -347,7 +355,11 @@ fn save_note(state: &Rc<State>, panes: &Rc<Panes>) {
     let uuid = note.uuid.clone();
     let (s, p) = (state.clone(), panes.clone());
     spawn(
-        move || client.replace(&uuid, &text, false),
+        // Never true: a note owned by someone else is not editable here, so
+        // there is no path from this window to a write that syncs to them.
+        // Offering the override would mean offering it in a window that cannot
+        // show who the owner is.
+        move || client.replace(&uuid, &text, false, false),
         move |res| match res {
             Ok(resp) => {
                 if resp.degraded.is_empty() {
@@ -464,16 +476,32 @@ fn note_row(note: &Note) -> gtk::ListBoxRow {
     b.set_margin_bottom(8);
     b.append(&name);
     b.append(&sub);
-    if note.locked {
-        let lock = gtk::Label::builder().label("Locked").xalign(0.0).build();
-        lock.add_css_class("caption");
-        lock.add_css_class("dim-label");
-        b.append(&lock);
+    // A note owned by someone else is read-only, so it is marked in the list
+    // rather than only once it is opened.
+    if let Some(tag) = badge(note) {
+        let l = gtk::Label::builder().label(tag).xalign(0.0).build();
+        l.add_css_class("caption");
+        l.add_css_class("dim-label");
+        b.append(&l);
     }
 
     let row = gtk::ListBoxRow::builder().child(&b).build();
     unsafe { row.set_data("uuid", note.uuid.clone()) };
     row
+}
+
+/// badge names the one thing about a note worth showing beside its title.
+fn badge(note: &Note) -> Option<&'static str> {
+    if note.locked {
+        return Some("Locked");
+    }
+    if note.shared_with_me {
+        return Some("Shared with you — read-only");
+    }
+    if note.shared {
+        return Some("Shared");
+    }
+    None
 }
 
 fn scrolled(child: &impl IsA<gtk::Widget>) -> gtk::ScrolledWindow {
