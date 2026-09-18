@@ -1,11 +1,11 @@
 [package]
-name = "quire"
+name = "anotes"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.85"
 description = "A GTK4 desktop client for Apple Notes, over an applenotes daemon"
 license = "MIT"
-repository = "https://github.com/gig3m/quire"
+repository = "https://github.com/gig3m/anotes"
 
 [dependencies]
 gtk = { package = "gtk4", version = "0.10", features = ["v4_12"] }

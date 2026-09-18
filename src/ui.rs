@@ -15,7 +15,7 @@ use std::rc::Rc;
 pub fn build(app: &adw::Application) {
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("Quire")
+        .title("anotes")
         .default_width(1100)
         .default_height(720)
         .build();
@@ -130,7 +130,7 @@ impl Panes {
         view.add_top_bar(&header);
         view.set_content(Some(&toast));
         let body_page = adw::NavigationPage::builder()
-            .title("Quire")
+            .title("anotes")
             .child(&view)
             .build();
 
@@ -497,7 +497,7 @@ fn page(title: &str, child: &impl IsA<gtk::Widget>, header: Option<&adw::HeaderB
 fn fatal_page(why: &str) -> adw::ToolbarView {
     let status = adw::StatusPage::builder()
         .icon_name("network-offline-symbolic")
-        .title("Quire cannot reach your notes")
+        .title("anotes cannot reach your notes")
         .description(why)
         .build();
     let view = adw::ToolbarView::new();
