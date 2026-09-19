@@ -25081,6 +25081,9 @@ var MARKS = /* @__PURE__ */ new Set([
   "QuoteMark",
   "LinkMark"
 ]);
+function isLinkDestination(name2, parent) {
+  return name2 === "URL" && parent === "Link";
+}
 var hidden = Decoration.replace({});
 var dim = Decoration.mark({ class: "cm-formatting" });
 var liveMarkers = ViewPlugin.fromClass(
@@ -25104,9 +25107,15 @@ var liveMarkers = ViewPlugin.fromClass(
           from,
           to,
           enter: (node) => {
-            if (!MARKS.has(node.name)) return;
             const line = view.state.doc.lineAt(node.from).number;
-            marks2.push({ from: node.from, to: node.to, deco: active.has(line) ? dim : hidden });
+            const deco = active.has(line) ? dim : hidden;
+            if (node.name === "Escape") {
+              marks2.push({ from: node.from, to: node.from + 1, deco });
+              return;
+            }
+            if (MARKS.has(node.name) || isLinkDestination(node.name, node.node.parent?.name)) {
+              marks2.push({ from: node.from, to: node.to, deco });
+            }
           }
         });
       }

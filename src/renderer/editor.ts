@@ -32,6 +32,18 @@ const MARKS = new Set([
   "LinkMark",
 ]);
 
+/**
+ * A link's destination is markup too.
+ *
+ * Concealing only the brackets left "[17 Time Periods](https://www.google.com/
+ * search?q=…)" showing its entire query string -- four wrapped lines of it for
+ * one link, where iCloud shows the label alone. Only inside a Link: a bare URL
+ * in the text is the text, and hiding that would delete what the note says.
+ */
+function isLinkDestination(name: string, parent: string | undefined): boolean {
+  return name === "URL" && parent === "Link";
+}
+
 const hidden = Decoration.replace({});
 const dim = Decoration.mark({ class: "cm-formatting" });
 
@@ -63,11 +75,21 @@ const liveMarkers = ViewPlugin.fromClass(
           from,
           to,
           enter: (node) => {
-            if (!MARKS.has(node.name)) return;
             const line = view.state.doc.lineAt(node.from).number;
-            // A link's destination is markup too, but concealing it without
-            // replacing it would leave the label pointing at nothing visible.
-            marks.push({ from: node.from, to: node.to, deco: active.has(line) ? dim : hidden });
+            const deco = active.has(line) ? dim : hidden;
+
+            // A backslash escape is markup for the character after it, so only
+            // the backslash is concealed. The daemon escapes anything that
+            // would otherwise read as syntax, which in a note full of
+            // "*-*-*____*____*" is most of the line -- shown raw it is a wall
+            // of backslashes where every other client shows the text.
+            if (node.name === "Escape") {
+              marks.push({ from: node.from, to: node.from + 1, deco });
+              return;
+            }
+            if (MARKS.has(node.name) || isLinkDestination(node.name, node.node.parent?.name)) {
+              marks.push({ from: node.from, to: node.to, deco });
+            }
           },
         });
       }
