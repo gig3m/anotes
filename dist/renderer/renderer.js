@@ -25086,6 +25086,38 @@ function isLinkDestination(name2, parent) {
 }
 var hidden = Decoration.replace({});
 var dim = Decoration.mark({ class: "cm-formatting" });
+var EntityWidget = class extends WidgetType {
+  constructor(ch) {
+    super();
+    this.ch = ch;
+  }
+  eq(other) {
+    return other.ch === this.ch;
+  }
+  toDOM() {
+    const span = document.createElement("span");
+    span.textContent = this.ch;
+    return span;
+  }
+  ignoreEvent() {
+    return false;
+  }
+};
+function entityChar(text) {
+  const numeric = /^&#(\d+);$/.exec(text);
+  if (numeric?.[1]) return String.fromCodePoint(Number(numeric[1]));
+  const hex = /^&#[xX]([0-9a-fA-F]+);$/.exec(text);
+  if (hex?.[1]) return String.fromCodePoint(parseInt(hex[1], 16));
+  const named = {
+    "&amp;": "&",
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": '"',
+    "&apos;": "'",
+    "&nbsp;": "\xA0"
+  };
+  return named[text] ?? null;
+}
 var liveMarkers = ViewPlugin.fromClass(
   class {
     decorations;
@@ -25109,6 +25141,17 @@ var liveMarkers = ViewPlugin.fromClass(
           enter: (node) => {
             const line = view.state.doc.lineAt(node.from).number;
             const deco = active.has(line) ? dim : hidden;
+            if (node.name === "Entity") {
+              const ch = entityChar(view.state.doc.sliceString(node.from, node.to));
+              if (ch !== null) {
+                marks2.push({
+                  from: node.from,
+                  to: node.to,
+                  deco: Decoration.replace({ widget: new EntityWidget(ch) })
+                });
+              }
+              return;
+            }
             if (node.name === "Escape") {
               marks2.push({ from: node.from, to: node.from + 1, deco });
               return;
@@ -25154,7 +25197,12 @@ function createEditor(parent, host) {
           ...defaultKeymap,
           ...historyKeymap
         ]),
-        markdown({ base: markdownLanguage }),
+        // Indented code blocks are removed. Four leading spaces mean a code
+        // block in Markdown, and in a note they mean an indented paragraph --
+        // Notes indents freely, so half of a note of meeting notes came out
+        // rendered as source code. Nothing in these notes is code except a
+        // fenced block, which is unaffected.
+        markdown({ base: markdownLanguage, extensions: [{ remove: ["IndentedCode"] }] }),
         // The caret and the active line, explicitly. CodeMirror draws neither
         // by default, and without them there is no way to tell where you are --
         // which matters more here than in a code editor, because the

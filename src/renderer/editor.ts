@@ -1,7 +1,7 @@
 import { EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView, Decoration, ViewPlugin, keymap, drawSelection, dropCursor,
-  highlightActiveLine, type DecorationSet,
+  highlightActiveLine, WidgetType, type DecorationSet,
 } from "@codemirror/view";
 import { syntaxTree, syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
@@ -48,6 +48,47 @@ const hidden = Decoration.replace({});
 const dim = Decoration.mark({ class: "cm-formatting" });
 
 /**
+ * Shows a character reference as the character it stands for.
+ *
+ * The daemon writes indentation as &#160; -- deliberately, because a plain
+ * space collapses on the way back into HTML and the indent would be lost. Every
+ * Markdown reader decodes it; this one showed "&#160;&#160;&#160;&#160;" at the
+ * start of every indented line, which in a note of meeting notes is most of
+ * them.
+ *
+ * The source keeps the reference, so what is saved is what the daemon sent.
+ */
+class EntityWidget extends WidgetType {
+  constructor(readonly ch: string) {
+    super();
+  }
+  eq(other: EntityWidget) {
+    return other.ch === this.ch;
+  }
+  toDOM() {
+    const span = document.createElement("span");
+    span.textContent = this.ch;
+    return span;
+  }
+  ignoreEvent() {
+    return false;
+  }
+}
+
+/** Decodes the references Notes' Markdown actually contains. */
+function entityChar(text: string): string | null {
+  const numeric = /^&#(\d+);$/.exec(text);
+  if (numeric?.[1]) return String.fromCodePoint(Number(numeric[1]));
+  const hex = /^&#[xX]([0-9a-fA-F]+);$/.exec(text);
+  if (hex?.[1]) return String.fromCodePoint(parseInt(hex[1], 16));
+  const named: Record<string, string> = {
+    "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&apos;": "'",
+    "&nbsp;": "\u00a0",
+  };
+  return named[text] ?? null;
+}
+
+/**
  * Conceal the syntax on lines the cursor is not on.
  *
  * Per line rather than per node: moving into a word should reveal that line's
@@ -83,6 +124,20 @@ const liveMarkers = ViewPlugin.fromClass(
             // would otherwise read as syntax, which in a note full of
             // "*-*-*____*____*" is most of the line -- shown raw it is a wall
             // of backslashes where every other client shows the text.
+            // A character reference is shown as its character, on every line:
+            // unlike a delimiter there is nothing to reveal for editing, and
+            // seeing "&#160;" where a space belongs is never useful.
+            if (node.name === "Entity") {
+              const ch = entityChar(view.state.doc.sliceString(node.from, node.to));
+              if (ch !== null) {
+                marks.push({
+                  from: node.from,
+                  to: node.to,
+                  deco: Decoration.replace({ widget: new EntityWidget(ch) }),
+                });
+              }
+              return;
+            }
             if (node.name === "Escape") {
               marks.push({ from: node.from, to: node.from + 1, deco });
               return;
@@ -150,7 +205,12 @@ export function createEditor(parent: HTMLElement, host: EditorHost): {
           ...defaultKeymap,
           ...historyKeymap,
         ]),
-        markdown({ base: markdownLanguage }),
+        // Indented code blocks are removed. Four leading spaces mean a code
+        // block in Markdown, and in a note they mean an indented paragraph --
+        // Notes indents freely, so half of a note of meeting notes came out
+        // rendered as source code. Nothing in these notes is code except a
+        // fenced block, which is unaffected.
+        markdown({ base: markdownLanguage, extensions: [{ remove: ["IndentedCode"] }] }),
         // The caret and the active line, explicitly. CodeMirror draws neither
         // by default, and without them there is no way to tell where you are --
         // which matters more here than in a code editor, because the
