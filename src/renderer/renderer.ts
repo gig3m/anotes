@@ -3,6 +3,7 @@ import { createEditor } from "./editor.ts";
 // The window. Everything that talks to the daemon goes through the preload
 // bridge, so the token never reaches here.
 declare const anotes: {
+  wantedNote(): Promise<string>;
   palette(): Promise<Record<string, string>>;
   onPalette(fn: (p: Record<string, string>) => void): void;
   folders(): Promise<Result<Folder[]>>;
@@ -146,6 +147,11 @@ async function loadNotes(): Promise<void> {
   drawList();
   // Open the first note, as Notes does: a window that starts on an empty pane
   // makes the reader click once before it has shown them anything.
+  const wanted = await anotes.wantedNote();
+  if (wanted) {
+    if (!current) openNote(wanted);
+    return;
+  }
   const first = notes[0];
   if (first && !current) openNote(first.uuid);
 }
@@ -188,6 +194,10 @@ async function openNote(uuid: string): Promise<void> {
   saved = current.markdown ?? "";
   allowShared = false;
   editor.setDoc(saved);
+  setTimeout(() => {
+    const el = document.querySelector(".cm-content") as HTMLElement | null;
+    console.log("SHOWN", JSON.stringify(el?.innerText.split("\n").filter(l=>l.includes("Elijah"))[0]));
+  }, 900);
   editor.setReadOnly(readOnly());
   // Without focus there is no caret, and no way to see where you are.
   if (!readOnly()) editor.focus();

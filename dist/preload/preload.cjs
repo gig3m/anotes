@@ -3,6 +3,7 @@
 // src/preload/preload.ts
 var import_electron = require("electron");
 import_electron.contextBridge.exposeInMainWorld("anotes", {
+  wantedNote: () => import_electron.ipcRenderer.invoke("wanted-note"),
   palette: () => import_electron.ipcRenderer.invoke("palette"),
   onPalette: (fn) => import_electron.ipcRenderer.on("palette", (_e, p) => fn(p)),
   folders: () => import_electron.ipcRenderer.invoke("folders"),

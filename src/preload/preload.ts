@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer } from "electron";
  * could read it could leak it to anything a note links to.
  */
 contextBridge.exposeInMainWorld("anotes", {
+  wantedNote: () => ipcRenderer.invoke("wanted-note"),
   palette: () => ipcRenderer.invoke("palette"),
   onPalette: (fn: (p: unknown) => void) =>
     ipcRenderer.on("palette", (_e, p) => fn(p)),

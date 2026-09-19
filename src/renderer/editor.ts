@@ -40,8 +40,13 @@ const MARKS = new Set([
  * one link, where iCloud shows the label alone. Only inside a Link: a bare URL
  * in the text is the text, and hiding that would delete what the note says.
  */
-function isLinkDestination(name: string, parent: string | undefined): boolean {
-  return name === "URL" && parent === "Link";
+function isLinkDestination(view: EditorView, name: string, from: number): boolean {
+  if (name !== "URL") return false;
+  // The destination is the URL that follows "](", not merely any URL inside a
+  // link. In "[https://x](https://x)" -- which is how a bare link in a note
+  // comes across, label and destination the same -- matching on the parent
+  // concealed both, and the line lost its address entirely.
+  return view.state.doc.sliceString(from - 1, from) === "(";
 }
 
 const hidden = Decoration.replace({});
@@ -142,7 +147,19 @@ const liveMarkers = ViewPlugin.fromClass(
               marks.push({ from: node.from, to: node.from + 1, deco });
               return;
             }
-            if (MARKS.has(node.name) || isLinkDestination(node.name, node.node.parent?.name)) {
+            // A backslash inside a URL. The daemon escapes punctuation in link
+            // text, and an autolinked bare URL swallows the escape into the URL
+            // node rather than leaving an Escape node -- so "youtu.be/x\_y"
+            // displayed its backslash, in the middle of an address.
+            if (node.name === "URL") {
+              const text = view.state.doc.sliceString(node.from, node.to);
+              for (let k = 0; k < text.length - 1; k++) {
+                if (text[k] === "\\" && /[!-\/:-@\[-`{-~]/.test(text[k + 1]!)) {
+                  marks.push({ from: node.from + k, to: node.from + k + 1, deco });
+                }
+              }
+            }
+            if (MARKS.has(node.name) || isLinkDestination(view, node.name, node.from)) {
               marks.push({ from: node.from, to: node.to, deco });
             }
           },

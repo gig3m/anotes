@@ -60,6 +60,13 @@ function fail(e: unknown): { error: string; destroys?: string[] } {
 }
 
 app.whenReady().then(() => {
+  // --note <uuid> opens straight to one note. Used for comparing a note
+  // against the same note elsewhere without clicking through the list.
+  const wanted = (() => {
+    const i = process.argv.indexOf("--note");
+    return i >= 0 ? (process.argv[i + 1] ?? "") : "";
+  })();
+  ipcMain.handle("wanted-note", () => wanted);
   ipcMain.handle("palette", () => readPalette());
   ipcMain.handle("folders", async () => {
     try {

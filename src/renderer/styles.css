@@ -210,7 +210,13 @@ main { flex: 1; display: flex; min-height: 0; }
 /* The padding lives on the line, not the scroller, so the active-line tint runs
    the full width instead of stopping short of the margin. */
 .cm-line { padding: 0 20px; }
-.cm-content { caret-color: var(--accent); }
+.cm-content {
+  caret-color: var(--accent);
+  /* A URL is one unbreakable token. Wrapping breaks at spaces, so a line like
+     "Song title - https://youtu.be/…" ran off the side of a pane that clips,
+     and every link in the note was simply not on screen. */
+  overflow-wrap: anywhere;
+}
 /* A block caret, as a terminal draws it.
    CodeMirror builds the cursor out of a left border, so the border is dropped
    and the element given a width instead. `ch` is the width of "0" in the
@@ -263,7 +269,11 @@ main { flex: 1; display: flex; min-height: 0; }
 .cm-strike { text-decoration: line-through; color: var(--dark-foreground); }
 .cm-code { font-family: var(--mono-font); font-size: var(--text-mono); color: var(--cyan); }
 .cm-link { color: var(--accent); }
-.cm-url { color: var(--muted); font-family: var(--mono-font); font-size: var(--text-mono-small); }
+/* A URL that is visible is one the reader is meant to read: the destination
+   of a written link is concealed, so anything left is the address itself,
+   standing in for the link text. Styling it as dim 10px metadata made every
+   bare link in a note effectively invisible. */
+.cm-url { color: var(--accent); }
 .cm-list { color: var(--accent); }
 .cm-quote { color: var(--dark-foreground); font-style: italic; }
 

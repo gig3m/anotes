@@ -25081,8 +25081,9 @@ var MARKS = /* @__PURE__ */ new Set([
   "QuoteMark",
   "LinkMark"
 ]);
-function isLinkDestination(name2, parent) {
-  return name2 === "URL" && parent === "Link";
+function isLinkDestination(view, name2, from) {
+  if (name2 !== "URL") return false;
+  return view.state.doc.sliceString(from - 1, from) === "(";
 }
 var hidden = Decoration.replace({});
 var dim = Decoration.mark({ class: "cm-formatting" });
@@ -25156,7 +25157,15 @@ var liveMarkers = ViewPlugin.fromClass(
               marks2.push({ from: node.from, to: node.from + 1, deco });
               return;
             }
-            if (MARKS.has(node.name) || isLinkDestination(node.name, node.node.parent?.name)) {
+            if (node.name === "URL") {
+              const text = view.state.doc.sliceString(node.from, node.to);
+              for (let k = 0; k < text.length - 1; k++) {
+                if (text[k] === "\\" && /[!-\/:-@\[-`{-~]/.test(text[k + 1])) {
+                  marks2.push({ from: node.from + k, to: node.from + k + 1, deco });
+                }
+              }
+            }
+            if (MARKS.has(node.name) || isLinkDestination(view, node.name, node.from)) {
               marks2.push({ from: node.from, to: node.to, deco });
             }
           }
@@ -25365,6 +25374,11 @@ async function loadNotes() {
   say("");
   notes = r.ok;
   drawList();
+  const wanted = await anotes.wantedNote();
+  if (wanted) {
+    if (!current) openNote(wanted);
+    return;
+  }
   const first = notes[0];
   if (first && !current) openNote(first.uuid);
 }
@@ -25405,6 +25419,10 @@ async function openNote(uuid) {
   saved = current.markdown ?? "";
   allowShared = false;
   editor.setDoc(saved);
+  setTimeout(() => {
+    const el = document.querySelector(".cm-content");
+    console.log("SHOWN", JSON.stringify(el?.innerText.split("\n").filter((l) => l.includes("Elijah"))[0]));
+  }, 900);
   editor.setReadOnly(readOnly2());
   if (!readOnly2()) editor.focus();
   showBanner();
