@@ -12,6 +12,9 @@ mono, and themed from the live palette.
 
 ## Running
 
+Needs Node 20+ and the system Electron 43 (`electron43`, from the Arch repos),
+plus a reachable applenotes daemon.
+
 ```sh
 npm install
 npm start
@@ -68,4 +71,4 @@ encoded live where they belong, in the daemon.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
