@@ -10,6 +10,8 @@ is the bridge.
 Built for [Omarchy](https://omarchy.org): keyboard-first, almost no chrome,
 mono, and themed from the live palette.
 
+![anotes: folders, note list and editor](docs/screenshot.png)
+
 ## Running
 
 Needs Node 20+ and the system Electron 43 (`electron43`, from the Arch repos),
